@@ -8,25 +8,46 @@ const program = new Command();
 
 program
     .name("install-guard")
-    .description("Analyze npm packages for security risks before installing")
-    .version("2.0.0");
+    .description("Detect supply chain attacks in npm packages before installing")
+    .version("3.0.0");
 
 program
-    .argument("[package]", "package name to analyze")
-    .action(async (pkg) => {
+    .argument("[package]", "package name to analyze (e.g., axios or axios@1.14.1)")
+    .option("--json", "Output results as JSON")
+    .option("--skip-github", "Skip GitHub verification (faster)")
+    .action(async (pkg, opts) => {
         if (!pkg) {
             program.help();
             return;
         }
-        await analyzePackage(pkg);
+
+        // Support package@version syntax
+        let name = pkg;
+        let version;
+        const atIndex = pkg.lastIndexOf("@");
+        if (atIndex > 0) {
+            name = pkg.slice(0, atIndex);
+            version = pkg.slice(atIndex + 1);
+        }
+
+        await analyzePackage(name, version, {
+            json: opts.json,
+            skipGithub: opts.skipGithub,
+        });
     });
 
 program
     .command("scan")
-    .description("Scan all project dependencies for risks")
+    .description("Scan all project dependencies for supply chain risks")
     .option("-v, --verbose", "Show detailed analysis for each package")
+    .option("--json", "Output results as JSON")
+    .option("--skip-github", "Skip GitHub verification (faster)")
     .action(async (opts) => {
-        await scanProject({ verbose: opts.verbose });
+        await scanProject({
+            verbose: opts.verbose,
+            json: opts.json,
+            skipGithub: opts.skipGithub,
+        });
     });
 
 program

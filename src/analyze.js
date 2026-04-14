@@ -1,19 +1,25 @@
 import ora from "ora";
-import { getPackageData } from "./npm.js";
-import { calculateRisk } from "./score.js";
-import { formatAnalysis } from "./format.js";
+import { runPipeline } from "./services/pipeline.js";
+import { formatPipelineResult } from "./format.js";
 
-export async function analyze(pkgName) {
-    const spinner = ora(`Analyzing ${pkgName}...`).start();
+/**
+ * Analyze a package and print results to stdout.
+ * Returns the structured result.
+ */
+export async function analyze(pkgName, version, opts = {}) {
+    const spinner = ora(`Analyzing ${pkgName}${version ? `@${version}` : ""}...`).start();
 
     try {
-        const data = await getPackageData(pkgName);
-        const result = calculateRisk(data);
-
+        const result = await runPipeline(pkgName, version, opts);
         spinner.stop();
-        console.log(formatAnalysis(data, result));
 
-        return { data, result };
+        if (opts.json) {
+            console.log(JSON.stringify(result, null, 2));
+        } else {
+            console.log(formatPipelineResult(result));
+        }
+
+        return result;
     } catch (err) {
         spinner.fail(`Failed to analyze "${pkgName}": ${err.message}`);
         return null;

@@ -2,11 +2,10 @@ import fs from "fs";
 import path from "path";
 import chalk from "chalk";
 import ora from "ora";
-import { getPackageData } from "./npm.js";
-import { calculateRisk } from "./score.js";
-import { formatAnalysis, formatScanSummary } from "./format.js";
+import { runPipeline } from "./services/pipeline.js";
+import { formatPipelineResult, formatScanSummary } from "./format.js";
 
-export async function scanProject({ verbose } = {}) {
+export async function scanProject({ verbose, json, skipGithub } = {}) {
     const pkgPath = path.resolve("package.json");
 
     if (!fs.existsSync(pkgPath)) {
@@ -36,18 +35,17 @@ export async function scanProject({ verbose } = {}) {
     for (const dep of depNames) {
         spinner.start(`Analyzing ${dep}...`);
         try {
-            const data = await getPackageData(dep);
-            const result = calculateRisk(data);
-            results.push({ data, result });
+            const result = await runPipeline(dep, undefined, { skipGithub: skipGithub !== false });
+            results.push(result);
 
             if (verbose) {
                 spinner.stop();
-                console.log(formatAnalysis(data, result));
+                console.log(formatPipelineResult(result));
             } else {
                 const icon =
-                    result.level === "high"
+                    result.label === "CRITICAL" || result.label === "HIGH"
                         ? "🚨"
-                        : result.level === "medium"
+                        : result.label === "MEDIUM"
                           ? "⚠"
                           : "✅";
                 spinner.succeed(
@@ -59,5 +57,9 @@ export async function scanProject({ verbose } = {}) {
         }
     }
 
-    console.log(formatScanSummary(results));
+    if (json) {
+        console.log(JSON.stringify(results, null, 2));
+    } else {
+        console.log(formatScanSummary(results));
+    }
 }

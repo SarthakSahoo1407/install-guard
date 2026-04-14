@@ -2,9 +2,8 @@ import { execFileSync } from "child_process";
 import readline from "readline";
 import chalk from "chalk";
 import ora from "ora";
-import { getPackageData } from "./npm.js";
-import { calculateRisk } from "./score.js";
-import { formatAnalysis } from "./format.js";
+import { runPipeline } from "./services/pipeline.js";
+import { formatPipelineResult } from "./format.js";
 
 const VALID_PKG_NAME = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*(@[a-z0-9._^~>=<|-]+)?$/i;
 
@@ -30,27 +29,34 @@ export async function analyzeAndPrompt(pkgName) {
 
     const spinner = ora(`Analyzing ${pkgName}...`).start();
 
-    let data, result;
+    let result;
     try {
-        data = await getPackageData(pkgName);
-        result = calculateRisk(data);
+        result = await runPipeline(pkgName);
         spinner.stop();
     } catch (err) {
         spinner.fail(`Failed to analyze "${pkgName}": ${err.message}`);
         return;
     }
 
-    console.log(formatAnalysis(data, result));
+    console.log(formatPipelineResult(result));
 
-    if (result.level === "high") {
+    if (result.label === "CRITICAL") {
         const ans = await askQuestion(
-            chalk.red.bold("  ⚠ High risk package. Continue install? (y/n): ")
+            chalk.redBright.bold("  💀 CRITICAL risk. Are you absolutely sure? (y/n): ")
         );
         if (ans.toLowerCase() !== "y") {
             console.log(chalk.yellow("\n  Installation aborted.\n"));
             return;
         }
-    } else if (result.level === "medium") {
+    } else if (result.label === "HIGH") {
+        const ans = await askQuestion(
+            chalk.red.bold("  🚨 HIGH risk package. Continue install? (y/n): ")
+        );
+        if (ans.toLowerCase() !== "y") {
+            console.log(chalk.yellow("\n  Installation aborted.\n"));
+            return;
+        }
+    } else if (result.label === "MEDIUM") {
         const ans = await askQuestion(
             chalk.yellow("  ⚠ Medium risk. Continue install? (y/n): ")
         );
