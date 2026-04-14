@@ -1,3 +1,7 @@
+![npm](https://img.shields.io/npm/v/install-guard)
+![downloads](https://img.shields.io/npm/dw/install-guard)
+![license](https://img.shields.io/npm/l/install-guard)
+
 # 🚨 Should You Trust That npm Package Before Installing?
 
 **install-guard** analyzes npm packages and tells you if they are safe to install — before you install them.
