@@ -10,6 +10,10 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Sarthak Kumar Sahoo",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SarthakSahoo1407/install-guard.git"
+  },
   "license": "MIT",
   "description": "Analyze npm packages for security risks before installing",
   "dependencies": {
