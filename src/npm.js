@@ -1,27 +1,42 @@
-import axios from "axios";
-
 export async function getPackageData(pkg) {
-  const registryUrl = `https://registry.npmjs.org/${pkg}`;
-  const downloadUrl = `https://api.npmjs.org/downloads/point/last-week/${pkg}`;
+  const encodedPkg = encodeURIComponent(pkg).replace("%40", "@");
+  const registryUrl = `https://registry.npmjs.org/${encodedPkg}`;
+  const downloadUrl = `https://api.npmjs.org/downloads/point/last-week/${encodedPkg}`;
 
   const [registryRes, downloadRes] = await Promise.all([
-    axios.get(registryUrl),
-    axios.get(downloadUrl),
+    fetch(registryUrl).then((r) => {
+      if (!r.ok) throw new Error(`Package "${pkg}" not found on npm`);
+      return r.json();
+    }),
+    fetch(downloadUrl)
+      .then((r) => r.json())
+      .catch(() => ({ downloads: 0 })),
   ]);
 
-  const data = registryRes.data;
-  const latest = data["dist-tags"].latest;
-  const versionData = data.versions[latest];
+  const data = registryRes;
+  const latest = data["dist-tags"]?.latest;
+  if (!latest) throw new Error(`No published version found for "${pkg}"`);
+
+  const versionData = data.versions?.[latest] || {};
+  const timeData = data.time || {};
 
   return {
     name: data.name,
-    maintainers: data.maintainers?.length || 0,
-    lastPublished: data.time?.[latest],
-    hasInstallScript:
-      versionData.scripts?.install ||
-      versionData.scripts?.postinstall ||
-      false,
     version: latest,
-    downloads: downloadRes.data.downloads || 0,
+    description: data.description || "",
+    downloads: downloadRes.downloads || 0,
+    maintainers: data.maintainers || [],
+    license: versionData.license || data.license || "Unknown",
+    lastPublished: timeData[latest],
+    firstPublished: timeData.created,
+    hasInstallScript: !!(
+      versionData.scripts?.install ||
+      versionData.scripts?.preinstall ||
+      versionData.scripts?.postinstall
+    ),
+    deprecated: versionData.deprecated || false,
+    repository: data.repository?.url || versionData.repository?.url || null,
+    dependencies: Object.keys(versionData.dependencies || {}).length,
+    totalVersions: Object.keys(data.versions || {}).length,
   };
 }

@@ -1,7 +1,12 @@
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import readline from "readline";
+import chalk from "chalk";
+import ora from "ora";
 import { getPackageData } from "./npm.js";
 import { calculateRisk } from "./score.js";
+import { formatAnalysis } from "./format.js";
+
+const VALID_PKG_NAME = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*(@[a-z0-9._^~>=<|-]+)?$/i;
 
 function askQuestion(query) {
     const rl = readline.createInterface({
@@ -18,27 +23,44 @@ function askQuestion(query) {
 }
 
 export async function analyzeAndPrompt(pkgName) {
-    console.log(`\nAnalyzing ${pkgName}...\n`);
+    if (!VALID_PKG_NAME.test(pkgName)) {
+        console.log(chalk.red("\n  ✘ Invalid package name.\n"));
+        return;
+    }
 
-    const data = await getPackageData(pkgName);
-    const { score, warnings } = calculateRisk(data);
+    const spinner = ora(`Analyzing ${pkgName}...`).start();
 
-    console.log(`Risk Score: ${score}/10`);
+    let data, result;
+    try {
+        data = await getPackageData(pkgName);
+        result = calculateRisk(data);
+        spinner.stop();
+    } catch (err) {
+        spinner.fail(`Failed to analyze "${pkgName}": ${err.message}`);
+        return;
+    }
 
-    warnings.forEach((w) => console.log(`⚠ ${w}`));
+    console.log(formatAnalysis(data, result));
 
-    if (score >= 6) {
+    if (result.level === "high") {
         const ans = await askQuestion(
-            "\nHigh risk package. Continue install? (y/n): "
+            chalk.red.bold("  ⚠ High risk package. Continue install? (y/n): ")
         );
-
         if (ans.toLowerCase() !== "y") {
-            console.log("Installation aborted.");
+            console.log(chalk.yellow("\n  Installation aborted.\n"));
+            return;
+        }
+    } else if (result.level === "medium") {
+        const ans = await askQuestion(
+            chalk.yellow("  ⚠ Medium risk. Continue install? (y/n): ")
+        );
+        if (ans.toLowerCase() !== "y") {
+            console.log(chalk.yellow("\n  Installation aborted.\n"));
             return;
         }
     }
 
-    console.log("\nInstalling...\n");
-
-    execSync(`npm install ${pkgName}`, { stdio: "inherit" });
+    console.log(chalk.green("\n  Installing...\n"));
+    execFileSync("npm", ["install", pkgName], { stdio: "inherit" });
+    console.log(chalk.green(`\n  ✔ ${pkgName} installed successfully.\n`));
 }

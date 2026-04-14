@@ -8,13 +8,14 @@ const program = new Command();
 
 program
     .name("install-guard")
-    .description("Check npm package risk before installing");
+    .description("Analyze npm packages for security risks before installing")
+    .version("2.0.0");
 
 program
     .argument("[package]", "package name to analyze")
     .action(async (pkg) => {
         if (!pkg) {
-            console.log("Please provide a package name");
+            program.help();
             return;
         }
         await analyzePackage(pkg);
@@ -22,14 +23,18 @@ program
 
 program
     .command("scan")
-    .description("Scan current project dependencies")
-    .action(scanProject);
-    
+    .description("Scan all project dependencies for risks")
+    .option("-v, --verbose", "Show detailed analysis for each package")
+    .action(async (opts) => {
+        await scanProject({ verbose: opts.verbose });
+    });
+
 program
-  .command("install <pkg>")
-  .description("Analyze and install package safely")
-  .action(async (pkg) => {
-    const { analyzeAndPrompt } = await import("../src/install.js");
-    await analyzeAndPrompt(pkg);
-  });
+    .command("install <pkg>")
+    .description("Analyze and safely install a package")
+    .action(async (pkg) => {
+        const { analyzeAndPrompt } = await import("../src/install.js");
+        await analyzeAndPrompt(pkg);
+    });
+
 program.parse();

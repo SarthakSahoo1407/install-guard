@@ -1,5 +1,5 @@
 import { analyze } from "./analyze.js";
 
 export async function analyzePackage(pkg) {
-    await analyze(pkg);
+    return await analyze(pkg);
 }
